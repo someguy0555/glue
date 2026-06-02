@@ -4,51 +4,71 @@ const char* token_type_name(TokenType type)
 {
     switch (type)
     {
+        // Single-character tokens.
         case TOKEN_LEFT_PAREN:    return "TOKEN_LEFT_PAREN";
         case TOKEN_RIGHT_PAREN:   return "TOKEN_RIGHT_PAREN";
         case TOKEN_LEFT_BRACE:    return "TOKEN_LEFT_BRACE";
         case TOKEN_RIGHT_BRACE:   return "TOKEN_RIGHT_BRACE";
-        case TOKEN_COMMA:         return "TOKEN_COMMA";
+        case TOKEN_LEFT_SQUARE:   return "TOKEN_LEFT_SQUARE";
+        case TOKEN_RIGHT_SQUARE:  return "TOKEN_RIGHT_SQUARE";
         case TOKEN_MINUS:         return "TOKEN_MINUS";
         case TOKEN_PLUS:          return "TOKEN_PLUS";
-        case TOKEN_SEMICOLON:     return "TOKEN_SEMICOLON";
         case TOKEN_STAR:          return "TOKEN_STAR";
+        case TOKEN_PIPE:          return "TOKEN_PIPE";
+        case TOKEN_COMMA:         return "TOKEN_COMMA";
+        case TOKEN_SEMICOLON:     return "TOKEN_SEMICOLON";
+        case TOKEN_UNDERSCORE:    return "TOKEN_UNDERSCORE";
         case TOKEN_NEWLINE:       return "TOKEN_NEWLINE";
 
+        // One or two character tokens.
         case TOKEN_EQUAL:         return "TOKEN_EQUAL";
         case TOKEN_EQUAL_EQUAL:   return "TOKEN_EQUAL_EQUAL";
-        case TOKEN_GREATER:       return "TOKEN_GREATER";
-        case TOKEN_GREATER_EQUAL: return "TOKEN_GREATER_EQUAL";
-        case TOKEN_LESS:          return "TOKEN_LESS";
-        case TOKEN_LESS_EQUAL:    return "TOKEN_LESS_EQUAL";
-        case TOKEN_DOT:           return "TOKEN_DOT";
-        case TOKEN_DOT_DOT:       return "TOKEN_DOT_DOT";
+        case TOKEN_EQUAL_GREATER: return "TOKEN_EQUAL_GREATER";
         case TOKEN_SLASH:         return "TOKEN_SLASH";
         case TOKEN_SLASH_EQUAL:   return "TOKEN_SLASH_EQUAL";
+        case TOKEN_LESS:          return "TOKEN_LESS";
+        case TOKEN_LESS_EQUAL:    return "TOKEN_LESS_EQUAL";
+        case TOKEN_GREATER:       return "TOKEN_GREATER";
+        case TOKEN_GREATER_EQUAL: return "TOKEN_GREATER_EQUAL";
+        case TOKEN_DOT:           return "TOKEN_DOT";
+        case TOKEN_DOT_DOT:       return "TOKEN_DOT_DOT";
+        case TOKEN_COLON:         return "TOKEN_COLON";
+        case TOKEN_COLON_COLON:   return "TOKEN_COLON_COLON";
 
+        // Literals.
         case TOKEN_IDENTIFIER:    return "TOKEN_IDENTIFIER";
         case TOKEN_STRING:        return "TOKEN_STRING";
+        case TOKEN_INTEGER:       return "TOKEN_INTEGER";
         case TOKEN_NUMBER:        return "TOKEN_NUMBER";
         case TOKEN_COMMENT:       return "TOKEN_COMMENT";
 
-        case TOKEN_AND:           return "TOKEN_AND";
-        case TOKEN_ELSE:          return "TOKEN_ELSE";
-        case TOKEN_ELIF:          return "TOKEN_ELIF";
-        case TOKEN_FALSE:         return "TOKEN_FALSE";
-        case TOKEN_FOR:           return "TOKEN_FOR";
-        case TOKEN_FN:            return "TOKEN_FN";
-        case TOKEN_IF:            return "TOKEN_IF";
-        case TOKEN_NIL:           return "TOKEN_NIL";
-        case TOKEN_OR:            return "TOKEN_OR";
-        case TOKEN_PRINT:         return "TOKEN_PRINT";
-        case TOKEN_RETURN:        return "TOKEN_RETURN";
-        case TOKEN_THIS:          return "TOKEN_THIS";
-        case TOKEN_TRUE:          return "TOKEN_TRUE";
+        // Keywords.
         case TOKEN_LET:           return "TOKEN_LET";
+        case TOKEN_TYPE:          return "TOKEN_TYPE";
+        case TOKEN_EFFECT:        return "TOKEN_EFFECT";
+        case TOKEN_NIL:           return "TOKEN_NIL";
+        case TOKEN_TRUE:          return "TOKEN_TRUE";
+        case TOKEN_FALSE:         return "TOKEN_FALSE";
+        case TOKEN_AND:           return "TOKEN_AND";
+        case TOKEN_OR:            return "TOKEN_OR";
+        case TOKEN_DO:            return "TOKEN_DO";
+        case TOKEN_END:           return "TOKEN_END";
+        case TOKEN_IF:            return "TOKEN_IF";
+        case TOKEN_ELIF:          return "TOKEN_ELIF";
+        case TOKEN_ELSE:          return "TOKEN_ELSE";
         case TOKEN_WHILE:         return "TOKEN_WHILE";
+        case TOKEN_FOR:           return "TOKEN_FOR";
+        case TOKEN_IN:            return "TOKEN_IN";
+        case TOKEN_BREAK:         return "TOKEN_BREAK";
         case TOKEN_LOOP:          return "TOKEN_LOOP";
+        case TOKEN_CTL:           return "TOKEN_CTL";
+        case TOKEN_FN:            return "TOKEN_FN";
+        case TOKEN_RETURN:        return "TOKEN_RETURN";
         case TOKEN_MATCH:         return "TOKEN_MATCH";
+        case TOKEN_HANDLE:        return "TOKEN_HANDLE";
+        case TOKEN_PRINT:         return "TOKEN_PRINT";
 
+        // Special.
         case TOKEN_ERROR:         return "TOKEN_ERROR";
         case TOKEN_EOF:           return "TOKEN_EOF";
     }
@@ -183,24 +203,28 @@ Token scanner_scan_token(Scanner* scanner)
         case ')': return scanner_make_token(scanner, TOKEN_RIGHT_PAREN , 0, 1);
         case '{': return scanner_make_token(scanner, TOKEN_LEFT_BRACE  , 0, 1);
         case '}': return scanner_make_token(scanner, TOKEN_RIGHT_BRACE , 0, 1);
-        case ';': return scanner_make_token(scanner, TOKEN_SEMICOLON   , 0, 1);
-        case ',': return scanner_make_token(scanner, TOKEN_COMMA       , 0, 1);
-        case '.': return scanner_make_token(scanner, TOKEN_DOT         , 0, 1);
+        case '[': return scanner_make_token(scanner, TOKEN_LEFT_SQUARE , 0, 1);
+        case ']': return scanner_make_token(scanner, TOKEN_RIGHT_SQUARE, 0, 1);
         case '-': return scanner_make_token(scanner, TOKEN_MINUS       , 0, 1);
         case '+': return scanner_make_token(scanner, TOKEN_PLUS        , 0, 1);
         case '*': return scanner_make_token(scanner, TOKEN_STAR        , 0, 1);
+        case '|': return scanner_make_token(scanner, TOKEN_PIPE        , 0, 1);
+        case ',': return scanner_make_token(scanner, TOKEN_COMMA       , 0, 1);
+        case ';': return scanner_make_token(scanner, TOKEN_SEMICOLON   , 0, 1);
 
         // One or more character tokens
+        case '=':
+            if (scanner_match(scanner, '='))
+                return scanner_make_token(scanner, TOKEN_EQUAL_EQUAL  , 0, 2);
+            else if (scanner_match(scanner, '>'))
+                return scanner_make_token(scanner, TOKEN_EQUAL_GREATER, 0, 1);
+            else
+                return scanner_make_token(scanner, TOKEN_EQUAL        , 0, 1);
         case '/':
             if (scanner_match(scanner, '='))
                 return scanner_make_token(scanner, TOKEN_SLASH_EQUAL  , 0, 2);
             else
                 return scanner_make_token(scanner, TOKEN_SLASH        , 0, 1);
-        case '=':
-            if (scanner_match(scanner, '='))
-                return scanner_make_token(scanner, TOKEN_EQUAL_EQUAL  , 0, 2);
-            else
-                return scanner_make_token(scanner, TOKEN_EQUAL        , 0, 1);
         case '<':
             if (scanner_match(scanner, '='))
                 return scanner_make_token(scanner, TOKEN_LESS_EQUAL   , 0, 2);
@@ -211,6 +235,16 @@ Token scanner_scan_token(Scanner* scanner)
                 return scanner_make_token(scanner, TOKEN_GREATER_EQUAL, 0, 2);
             else
                 return scanner_make_token(scanner, TOKEN_GREATER      , 0, 1);
+        case '.':
+            if (scanner_match(scanner, '.'))
+                return scanner_make_token(scanner, TOKEN_DOT_DOT      , 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_DOT          , 0, 1);
+        case ':':
+            if (scanner_match(scanner, ':'))
+                return scanner_make_token(scanner, TOKEN_COLON_COLON  , 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_COLON        , 0, 1);
 
         // Literals
         case '#': return scanner_scan_line_comment(scanner);
@@ -218,6 +252,160 @@ Token scanner_scan_token(Scanner* scanner)
         default:
             if (is_digit(c))
                     return scanner_scan_number(scanner);
+            else if (is_alpha(c))
+            {
+                switch (c)
+                {
+                    case 'l': // let, loop
+                        if (scanner_match_string(scanner, "et"))
+                            rt = scanner_make_token(scanner, TOKEN_LET, 0, 2);
+                        else if (scanner_match_string(scanner, "oop"))
+                            rt = scanner_make_token(scanner, TOKEN_LOOP, 0, 3);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 't': // type, true
+                        if (scanner_match_string(scanner, "ype"))
+                            rt = scanner_make_token(scanner, TOKEN_TYPE, 0, 3);
+                        else if (scanner_match_string(scanner, "rue"))
+                            rt = scanner_make_token(scanner, TOKEN_TRUE, 0, 3);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'e': // effect, end, elif, else
+                        if (scanner_match_string(scanner, "ffect"))
+                            rt = scanner_make_token(scanner, TOKEN_EFFECT, 0, 5);
+                        else if (scanner_match_string(scanner, "nd"))
+                            rt = scanner_make_token(scanner, TOKEN_END, 0, 2);
+                        else if (scanner_match_string(scanner, "lif"))
+                            rt = scanner_make_token(scanner, TOKEN_ELIF, 0, 3);
+                        else if (scanner_match_string(scanner, "lse"))
+                            rt = scanner_make_token(scanner, TOKEN_ELSE, 0, 3);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'n': // nil
+                        if (scanner_match_string(scanner, "il"))
+                            rt = scanner_make_token(scanner, TOKEN_NIL, 0, 2);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'f': // false, for, fn
+                        if (scanner_match_string(scanner, "alse"))
+                            rt = scanner_make_token(scanner, TOKEN_FALSE, 0, 4);
+                        else if (scanner_match_string(scanner, "or"))
+                            rt = scanner_make_token(scanner, TOKEN_FOR, 0, 2);
+                        else if (scanner_match_string(scanner, "n"))
+                            rt = scanner_make_token(scanner, TOKEN_FN, 0, 1);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'a': // and
+                        if (scanner_match_string(scanner, "nd"))
+                            rt = scanner_make_token(scanner, TOKEN_AND, 0, 2);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'o': // or
+                        if (scanner_match_string(scanner, "r"))
+                            rt = scanner_make_token(scanner, TOKEN_OR, 0, 1);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'd': // do
+                        if (scanner_match_string(scanner, "o"))
+                            rt = scanner_make_token(scanner, TOKEN_DO, 0, 1);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'i': // if, in
+                        if (scanner_match_string(scanner, "f"))
+                            rt = scanner_make_token(scanner, TOKEN_IF, 0, 1);
+                        else if (scanner_match_string(scanner, "n"))
+                            rt = scanner_make_token(scanner, TOKEN_IN, 0, 1);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'w': // while
+                        if (scanner_match_string(scanner, "hile"))
+                            rt = scanner_make_token(scanner, TOKEN_WHILE, 0, 4);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'b': // break
+                        if (scanner_match_string(scanner, "reak"))
+                            rt = scanner_make_token(scanner, TOKEN_BREAK, 0, 4);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'c': // ctl
+                        if (scanner_match_string(scanner, "tl"))
+                            rt = scanner_make_token(scanner, TOKEN_CTL, 0, 2);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'r': // return
+                        if (scanner_match_string(scanner, "eturn"))
+                            rt = scanner_make_token(scanner, TOKEN_RETURN, 0, 5);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'm': // match
+                        if (scanner_match_string(scanner, "atch"))
+                            rt = scanner_make_token(scanner, TOKEN_MATCH, 0, 4);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'h': // handle
+                        if (scanner_match_string(scanner, "andle"))
+                            rt = scanner_make_token(scanner, TOKEN_HANDLE, 0, 5);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    case 'p': // print
+                        if (scanner_match_string(scanner, "rint"))
+                            rt = scanner_make_token(scanner, TOKEN_PRINT, 0, 4);
+                        else
+                            rt = scanner_scan_identifier(scanner);
+                        break;
+
+                    default:
+                        rt = scanner_scan_identifier(scanner);
+                        break;
+                }
+
+                scanner->column++;
+                return rt;
+            }
+            // I can already tell that this is going to cause some issues later down the road...
+            // But today is not tomorrow, so that'll be the problem of future me :D
+            else if (c == '_')
+            {
+                char c = scanner_peek(*scanner);
+                if (is_identifier_middle(c) || is_identifier_end(c))
+                {
+                    rt = scanner_scan_identifier(scanner);
+                    scanner->column++;
+                    return rt;
+                }
+                else
+                    return scanner_make_token(scanner, TOKEN_UNDERSCORE, 0, 1);
+            }
     }
 #undef increment_column
 
@@ -369,7 +557,7 @@ Token scanner_scan_number(Scanner* scanner)
 {
     Token token =
     {
-        .type   = TOKEN_NUMBER,
+        .type   = TOKEN_INTEGER,
         .start  = scanner->start,
         .line   = scanner->line,
         .column = scanner->column,
@@ -384,8 +572,9 @@ Token scanner_scan_number(Scanner* scanner)
         scanner->column++;
     }
 
-    if (c == '.')
+    if (c == '.' && is_digit(scanner_peek(*scanner)))
     {
+        token.type = TOKEN_NUMBER;
         scanner->column++;
         scanner_consume(scanner);
         while (!scanner_is_at_end(*scanner) && is_digit(c = scanner_peek(*scanner)))
@@ -393,6 +582,75 @@ Token scanner_scan_number(Scanner* scanner)
             scanner_consume(scanner);
             scanner->column++;
         }
+    }
+
+    token.length = scanner->current - scanner->start;
+    return token;
+}
+
+bool scanner_match_string(Scanner* scanner, const char* str)
+{
+    int32_t len = strlen(str);
+    if (len == 0) return false;
+
+    for (size_t i = 0; i < strlen(str); ++i)
+    {
+        char c = str[0];
+        if (c == scanner_peek(*scanner))
+            scanner_consume(scanner);
+        else
+        {
+            scanner->current = scanner->start;
+            return false;
+        }
+    }
+
+    scanner->column += len;
+    return true;
+}
+
+bool is_identifier_middle(char c)
+{
+    if (is_alpha(c) || c == '_' || c == '-' || is_digit(c))
+        return true;
+    return false;
+}
+
+bool is_identifier_end(char c)
+{
+    if (is_alpha(c) || c == '_' || c == '?')
+        return true;
+    return false;
+}
+
+Token scanner_scan_identifier(Scanner* scanner)
+{
+    Token token =
+    {
+        .type   = TOKEN_IDENTIFIER,
+        .start  = scanner->start,
+        .line   = scanner->line,
+        .column = scanner->column,
+        .length = 0
+    };
+    char c;
+
+    // Perfectly valid identifier name.
+    //_------1212121212-?
+    while (true)
+    {
+        if (is_identifier_middle(scanner_peek(*scanner)))
+        {
+            scanner_consume(scanner);
+            scanner->column++;
+        }
+        else if (is_identifier_end(scanner_peek(*scanner)))
+        {
+            scanner_consume(scanner);
+            scanner->column++;
+            break;
+        }
+        else break;
     }
 
     token.length = scanner->current - scanner->start;

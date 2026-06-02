@@ -7,28 +7,39 @@
 typedef enum
 {
     // Single-character tokens.
-    TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,
-    TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
-    TOKEN_COMMA, TOKEN_MINUS, TOKEN_PLUS,
-    TOKEN_SEMICOLON, TOKEN_STAR,
+    TOKEN_LEFT_PAREN , TOKEN_RIGHT_PAREN,
+    TOKEN_LEFT_BRACE , TOKEN_RIGHT_BRACE,
+    TOKEN_LEFT_SQUARE, TOKEN_RIGHT_SQUARE,
+    TOKEN_MINUS, TOKEN_PLUS,
+    TOKEN_STAR,
+    TOKEN_PIPE,
+    TOKEN_COMMA,
+    TOKEN_SEMICOLON,
+    TOKEN_UNDERSCORE,
     TOKEN_NEWLINE,
 
     // One or two character tokens.
-    TOKEN_EQUAL, TOKEN_EQUAL_EQUAL,
+    TOKEN_EQUAL  , TOKEN_EQUAL_EQUAL  , TOKEN_EQUAL_GREATER,
+    TOKEN_SLASH  , TOKEN_SLASH_EQUAL  ,
+    TOKEN_LESS   , TOKEN_LESS_EQUAL   ,
     TOKEN_GREATER, TOKEN_GREATER_EQUAL,
-    TOKEN_LESS, TOKEN_LESS_EQUAL,
-    TOKEN_DOT, TOKEN_DOT_DOT,
-    TOKEN_SLASH, TOKEN_SLASH_EQUAL,
+    TOKEN_DOT    , TOKEN_DOT_DOT      ,
+    TOKEN_COLON  , TOKEN_COLON_COLON  ,
 
     // Literals.
-    TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER, TOKEN_COMMENT,
+    TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_INTEGER, TOKEN_NUMBER, TOKEN_COMMENT,
 
     // Keywords.
-    TOKEN_AND, TOKEN_ELSE, TOKEN_ELIF, TOKEN_FALSE,
-    TOKEN_FOR, TOKEN_FN, TOKEN_IF, TOKEN_NIL, TOKEN_OR,
-    TOKEN_PRINT, TOKEN_RETURN, TOKEN_THIS,
-    TOKEN_TRUE, TOKEN_LET, TOKEN_WHILE, TOKEN_LOOP, TOKEN_MATCH,
+    TOKEN_LET  , TOKEN_TYPE  , TOKEN_EFFECT, TOKEN_NIL  ,
+    TOKEN_TRUE , TOKEN_FALSE , TOKEN_AND   , TOKEN_OR   ,
+    TOKEN_DO   , TOKEN_END   ,
+    TOKEN_IF   , TOKEN_ELIF  , TOKEN_ELSE  ,
+    TOKEN_WHILE, TOKEN_FOR   , TOKEN_IN    , TOKEN_BREAK, TOKEN_LOOP,
+    TOKEN_CTL  , TOKEN_FN    , TOKEN_RETURN,
+    TOKEN_MATCH, TOKEN_HANDLE,
+    TOKEN_PRINT,
 
+    // Special.
     TOKEN_ERROR, TOKEN_EOF
 }
 TokenType;
@@ -81,5 +92,10 @@ Token scanner_scan_line_comment(Scanner* scanner);
 bool is_digit(char c);
 bool is_alpha(char c);
 Token scanner_scan_number(Scanner* scanner);
+
+bool scanner_match_string(Scanner* scanner, const char* str);
+bool is_identifier_middle(char c);
+bool is_identifier_end(char c);
+Token scanner_scan_identifier(Scanner* scanner);
 
 #endif

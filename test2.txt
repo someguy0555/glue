@@ -1,0 +1,35 @@
+fn add(a) do
+    return fn(b); return a + b
+end
+
+type Maybe(a)
+| Nothing
+| Just(a)
+
+effect Exception
+| ctl throw(String) : ctl
+
+fn return_nat(nat : Int) : Maybe(Nat)
+do
+    let wrapped = nat:to_nat()
+    return wrapped
+end
+
+fn main()
+do
+    let n : Nat
+    case return_nat(5)
+    | Nothing => n = 0
+    | Just(x) => n = x
+    end
+
+    let ls : List(Int) = [1, 5, 0, 4, 8]
+    handle do
+        ls = ls:sort()
+            :filter(fn(x); return x < 5)
+            :check(fn(x); return x /= 1)
+        print(ls)
+    end
+    | ctl throw(msg); print(msg)
+    end
+end
