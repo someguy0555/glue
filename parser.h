@@ -3,55 +3,51 @@
 
 #include "dependencies.h"
 #include "scanner.h"
-
-//typedef enum
-//{
-//    // Linear
-//    STMT_LET,
-//    STMT_ASSIGN,
-//    STMT_EXPR
-//    // Conditional
-//    STMT_IF,
-//    // Loops
-//    STMT_WHILE,
-//    STMT_LOOP,
-//    STMT_BREAK,
-//    STMT_CONTINUE,
-//    // Functions
-//    STMT_FN,
-//    STMT_RETURN,
-//    // Types
-//    STMT_TYPE,
-//    STMT_MATCH,
-//    // Effects
-//    STMT_EFFECT,
-//    STMT_HANDLE,
-//    STMT_ERROR,
-//}
-//StmtType;
-//
-//typedef void StmtInfo;
-//
-//typedef struct
-//{
-//    expr
-//}
-//StmtExpr;
-//
-//typedef struct
-//{
-//    StmtType type;
-//    int32_t start;
-//    int32_t end;
-//    StmtInfo* info; // StmtIf, StmtWhile, etc.
-//}
-//Stmt;
+/*
+STMT_LET
+PTR_TO_STR
+TYPE
+PTR_TO_EXPR
+*/
 
 typedef enum
 {
-    TYPE_UNKNOWN
+    STMT_ERR              ,
+    STMT_LET_BARE         ,
+    STMT_LET_TYPE         ,
+    STMT_LET_EXPR         ,
+    STMT_LET_TYPE_AND_EXPR,
+    STMT_EXPR             ,
+    STMT_IF               ,
+    STMT_ELIF             ,
+    STMT_ELSE             ,
+    STMT_WHILE            ,
+    STMT_BREAK            ,
+    STMT_CONTINUE         ,
+    STMT_FN               ,
+    STMT_RETURN           ,
+    STMT_EMPTY            ,
 }
-ExprType;
+StmtType;
+
+typedef union
+{
+    struct
+    {
+        StmtType type ;
+        int32_t  depth;
+    }
+    header;
+    struct
+    {
+        int32_t line  ;
+        int32_t column;
+    }
+    position;
+    int32_t length;
+    size_t arena_ptr;
+}
+Stmt;
 
 typedef enum
 {
@@ -63,11 +59,16 @@ typedef enum
     OP_TRUE,
     OP_FALSE,
     OP_NIL,
+    OP_PRINT,
     // Prefix
     OP_NEG, // unary '-'
     OP_NOT,
+    OP_PRE_INC,
+    OP_PRE_DEC,
     // Postfix
     OP_INDEX,
+    OP_POST_INC,
+    OP_POST_DEC,
     // Infix
     OP_ADD,
     OP_SUB,
@@ -83,20 +84,39 @@ typedef enum
     OP_EQUAL,
     OP_NOT_EQUAL,
     OP_ACCESS,
+    OP_CHAIN,
+    // Assign (right associative)
+    OP_ASSIGN,
+    OP_ASSIGN_ADD,
+    OP_ASSIGN_SUB,
+    OP_ASSIGN_MUL,
+    OP_ASSIGN_MOD,
     // Unique
     OP_CALL,
     //OP_COLON, // technically binary, but it has different behaviour
 }
 ExprOpType;
 
+/*
+*/
+typedef enum
+{
+    TYPE_UNKNOWN,
+    TYPE_NIL    ,
+    TYPE_BOOL   ,
+    TYPE_INT    , // i64 - for now at least
+    TYPE_FLOAT  , // f64 - for now at least
+}
+ExprAtomicType;
+
 typedef struct
 {
-    ExprOpType  op_type ;
-    ExprType    type    ;
-    int32_t     args    ;
+    ExprOpType     op_type ;
+    ExprAtomicType type    ;
+    int32_t        args    ;
 
     const char* literal ;
-    int32_t line;
+    int32_t line  ;
     int32_t column;
     int32_t length;
 }
@@ -104,8 +124,10 @@ ExprOp;
 
 typedef struct
 {
-    const char* txt;
-    Token* tokens;
+    const char* txt   ;
+    Token*      tokens;
+
+    Arena arena;
 
     int32_t start;
     int32_t end;
@@ -127,12 +149,15 @@ typedef enum
 }
 LhsOpType;
 
-ExprOp* parser_parse_expr(Parser* parser);
+size_t parser_parse_expr(Parser* parser);
 ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power);
 
 void prefix_binding_power(ExprOpType op_type, int8_t* right);
 bool postfix_binding_power(ExprOpType op_type, int8_t* left);
 bool infix_binding_power(ExprOpType op_type, int8_t* left, int8_t* right);
+
+void append_rhs_to_expr(ExprOp* expr, ExprOp* rhs);
+
 //ExprOp* parser_parse_expr_inner(Parser parser, int8_t minimum_binding_power);
 
 //void infix_binding_power(ExprOpType op, int8_t* left, int8_t* right);

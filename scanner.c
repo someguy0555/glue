@@ -200,6 +200,18 @@ Token scanner_scan_token(Scanner* scanner)
             scanner->column = 0;
             return rt;
 
+        //TOKEN_BANG      , TOKEN_BANG_EQUAL   ,
+        //TOKEN_EQUAL     , TOKEN_EQUAL_EQUAL  , TOKEN_EQUAL_GREATER,
+        //TOKEN_LESS      , TOKEN_LESS_EQUAL   ,
+        //TOKEN_GREATER   , TOKEN_GREATER_EQUAL,
+        //TOKEN_DOT       , TOKEN_DOT_DOT      ,
+        //TOKEN_COLON     , TOKEN_COLON_COLON  ,
+        //TOKEN_PLUS      , TOKEN_PLUS_EQUAL   ,
+        //TOKEN_MINUS     , TOKEN_MINUS_EQUAL  ,
+        //TOKEN_STAR      , TOKEN_STAR_EQUAL   ,
+        //TOKEN_SLASH     , TOKEN_SLASH_EQUAL  ,
+        //TOKEN_PERCENT   , TOKEN_PERCENT_EQUAL,
+
         // One character tokens
         case '(': return scanner_make_token(scanner, TOKEN_LEFT_PAREN  , 0, 1);
         case ')': return scanner_make_token(scanner, TOKEN_RIGHT_PAREN , 0, 1);
@@ -207,15 +219,16 @@ Token scanner_scan_token(Scanner* scanner)
         case '}': return scanner_make_token(scanner, TOKEN_RIGHT_BRACE , 0, 1);
         case '[': return scanner_make_token(scanner, TOKEN_LEFT_SQUARE , 0, 1);
         case ']': return scanner_make_token(scanner, TOKEN_RIGHT_SQUARE, 0, 1);
-        case '-': return scanner_make_token(scanner, TOKEN_MINUS       , 0, 1);
-        case '+': return scanner_make_token(scanner, TOKEN_PLUS        , 0, 1);
-        case '*': return scanner_make_token(scanner, TOKEN_STAR        , 0, 1);
-        case '%': return scanner_make_token(scanner, TOKEN_PERCENT     , 0, 1);
         case '|': return scanner_make_token(scanner, TOKEN_PIPE        , 0, 1);
         case ',': return scanner_make_token(scanner, TOKEN_COMMA       , 0, 1);
         case ';': return scanner_make_token(scanner, TOKEN_SEMICOLON   , 0, 1);
 
         // One or more character tokens
+        case '!':
+            if (scanner_match(scanner, '='))
+                return scanner_make_token(scanner, TOKEN_BANG_EQUAL   , 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_BANG         , 0, 1);
         case '=':
             if (scanner_match(scanner, '='))
                 return scanner_make_token(scanner, TOKEN_EQUAL_EQUAL  , 0, 2);
@@ -223,11 +236,35 @@ Token scanner_scan_token(Scanner* scanner)
                 return scanner_make_token(scanner, TOKEN_EQUAL_GREATER, 0, 1);
             else
                 return scanner_make_token(scanner, TOKEN_EQUAL        , 0, 1);
+        case '+':
+            if (scanner_match(scanner, '='))
+                return scanner_make_token(scanner, TOKEN_PLUS_EQUAL  , 0, 2);
+            else if (scanner_match(scanner, '+'))
+                return scanner_make_token(scanner, TOKEN_PLUS_PLUS   , 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_PLUS        , 0, 1);
+        case '-':
+            if (scanner_match(scanner, '='))
+                return scanner_make_token(scanner, TOKEN_MINUS_EQUAL  , 0, 2);
+            else if (scanner_match(scanner, '-'))
+                return scanner_make_token(scanner, TOKEN_MINUS_MINUS  , 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_MINUS        , 0, 1);
+        case '*':
+            if (scanner_match(scanner, '='))
+                return scanner_make_token(scanner, TOKEN_STAR_EQUAL  , 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_STAR        , 0, 1);
         case '/':
             if (scanner_match(scanner, '='))
                 return scanner_make_token(scanner, TOKEN_SLASH_EQUAL  , 0, 2);
             else
                 return scanner_make_token(scanner, TOKEN_SLASH        , 0, 1);
+        case '%':
+            if (scanner_match(scanner, '='))
+                return scanner_make_token(scanner, TOKEN_PERCENT_EQUAL, 0, 2);
+            else
+                return scanner_make_token(scanner, TOKEN_PERCENT      , 0, 1);
         case '<':
             if (scanner_match(scanner, '='))
                 return scanner_make_token(scanner, TOKEN_LESS_EQUAL   , 0, 2);

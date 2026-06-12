@@ -4,12 +4,14 @@ Parser init_parser(Scanner scanner)
 {
     Parser parser =
     {
-        .txt = scanner.init,
-        .tokens = scanner.token_list,
-        .start    = 0,
+        .txt      = scanner.init              ,
+        .tokens   = scanner.token_list        ,
+        .arena    = init_arena()              ,
+        .start    = 0                         ,
         .end      = arrlen(scanner.token_list),
         .current  = 0
     };
+    push_arena(&(parser.arena ), sizeof(char) * 1, &parser);
 
     return parser;
 }
@@ -39,11 +41,183 @@ Token parser_next(Parser* parser)
     return token;
 }
 
-ExprOp* parser_parse_expr(Parser* parser)
+
+bool parser_skip(Parser* parser, bool (*predicate)(TokenType))
 {
-    return parser_parse_expr_inner(parser, 0);
+    bool ret = false;
+    while (true)
+    {
+        Token token = parser_peek(parser);
+        if (predicate(token.type))
+        {
+            parser_next(parser);
+            ret = true;
+        }
+        else
+            break;
+    }
+    return ret;
 }
 
+bool is_newline(TokenType type)
+{
+    switch (type)
+    {
+        case TOKEN_SEMICOLON: return true;
+        case TOKEN_NEWLINE  : return true;
+        default: return false;
+    }
+}
+
+void stmt_append_header(Stmt* stmt, StmtType type, int32_t depth, int32_t line, int32_t column, int32_t length)
+{
+    Stmt node;
+    node = (Stmt){ .header = { .type = type, .depth = depth }};
+    arrput(curr_stmt, node);
+    node = (Stmt){ .position = { .line = line, .column = column }};
+    arrput(curr_stmt, node);
+    node = (Stmt){ .length = length };
+    arrput(curr_stmt, node);
+}
+
+Stmt* parser_parse_stmts(Parser* parser, int32_t depth)
+{
+    Stmt* curr_stmt = NULL;
+    Stmt* recv_stmt = NULL;
+    parser_parse_stmt(parser, depth);
+
+    while (true)
+    {
+        recv_stmt = parser_parse_block(parser, depth + 1);
+        if (recv_stmt == NULL)
+            break;
+
+        append_list_to_list(curr_stmt, recv_stmt);
+        free(recv_stmt);
+    }
+
+    return curr_stmt;
+}
+
+Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
+{
+    Token tok;
+    Stmt* curr_stmt = NULL;
+    Stmt* recv_stmt = NULL;
+    Stmt  node;
+
+    parser_skip(parser, is_newline);
+
+    tok = parser_peek(parser);
+    switch (tok.type)
+    {
+        case TOKEN_LET:
+            parser_next(parser);
+            size_t str_ptr  = parser_parse_identifier(parser);
+
+            if (parser_peek(parser).type == TOKEN_EQUAL)
+            {
+                parser_next(parser);
+                size_t expr_ptr = parser_parse_expr(parser);
+
+                stmt_append_header(curr_stmt, STMT_LET_EXPR, depth, tok.line, tok.column, 0);
+            }
+            else
+            {
+                stmt_append_header(curr_stmt, STMT_LET_BARE, depth, tok.line, tok.column, 0);
+            }
+
+            break;
+        case TOKEN_IF:
+            parser_next(parser);
+            size_t expr_ptr = parser_parse_expr(parser);
+            
+            stmt_append_header(curr_stmt, STMT_IF, depth, tok.line, tok.column, 0);
+
+            tok = parser_peek(parser);
+            if (is_newline(tok.type))
+            {
+                parser_skip(parser, is_newline);
+                recv_stmt = parser_parse_stmt(parser, depth + 1);
+                append_list_to_list(curr_stmt, recv_stmt);
+                free(recv_stmt);
+            }
+            else if (tok.type == TOKEN_DO)
+            {
+                recv_stmt = parser_parse_block(parser, depth + 1);
+                append_list_to_list(curr_stmt, recv_stmt);
+                free(recv_stmt);
+            }
+            else
+            {
+                stmt_append_header(curr_stmt, STMT_ERR, depth, tok.line, tok.column, 0);
+            }
+
+            break;
+        case TOKEN_WHILE:
+            parser_next(parser);
+            size_t expr_ptr = parser_parse_expr(parser);
+            
+            stmt_append_header(curr_stmt, STMT_WHILE, depth, tok.line, tok.column, 0);
+
+            tok = parser_peek(parser);
+            if (is_newline(tok.type))
+            {
+                parser_skip(parser, is_newline);
+                recv_stmt = parser_parse_stmt(parser, depth + 1);
+                append_list_to_list(curr_stmt, recv_stmt);
+                free(recv_stmt);
+            }
+            else if (tok.type == TOKEN_DO)
+            {
+                recv_stmt = parser_parse_block(parser, depth + 1);
+                append_list_to_list(curr_stmt, recv_stmt);
+                free(recv_stmt);
+            }
+            else
+            {
+                stmt_append_header(curr_stmt, STMT_ERR, depth, tok.line, tok.column, 0);
+            }
+
+            break;
+        case TOKEN_DO:
+            parser_parse_block(parser, depth + 1);
+        case TOKEN_ERROR:
+            return NULL;
+        default:
+            perror("Parser line %d: Failed to parse statement\n");
+            exit(1);
+    }
+}
+
+size_t parser_add_string(Parser* parser)
+{
+    Token tok = parse_next(parser);
+    if (tok.type != TOKEN_IDENTIFIER)
+    {
+        perror("Parser line %d: The next token is not an identifier.\n")
+        exit(1);
+    }
+    char zero = '\0';
+    size_t ptr = push_arena(&(parser->arena), token.length * sizeof(char), token.start);
+    push_arena(&(parser->arena), sizeof(char), &zero);
+    return ptr;
+}
+
+//void parser_parse_block(Parser* parser, int32_t depth)
+//{
+//}
+
+size_t parser_parse_expr(Parser* parser)
+{
+    ExprOp* expr  = parser_parse_expr_inner(parser, 0);
+    size_t length = arrlen(expr) * sizeof(ExprOp);
+    size_t ptr    = push_arena(&(parser->arena), length, expr);
+    arrfree(expr);
+    return ptr;
+}
+
+// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 #define MAKE_OP_FROM_TOKEN(token, oper_type, argsn, expr_type) (ExprOp){\
         .op_type = (oper_type),\
         .type = (expr_type),\
@@ -53,7 +227,6 @@ ExprOp* parser_parse_expr(Parser* parser)
         .column = (token).column,\
         .length = (token).length\
     } 
-// https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
 {
     ExprOp* expr = NULL;
@@ -61,7 +234,7 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
 
     ExprOp  lhs;
     ExprOp  op ;
-    ExprOp* rhs; size_t rhs_len;
+    ExprOp* rhs;
     int8_t left_binding_power, right_binding_power;
 
     // Parse first literal
@@ -70,12 +243,19 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
     switch (token.type)
     {
         // Atoms
-        case TOKEN_NUMBER    : lhs = MAKE_OP_FROM_TOKEN(token, OP_NUMBER    , 0, TYPE_UNKNOWN); lot = LHS_OP_TYPE_ATOM  ; break;
-        case TOKEN_INTEGER   : lhs = MAKE_OP_FROM_TOKEN(token, OP_INTEGER   , 0, TYPE_UNKNOWN); lot = LHS_OP_TYPE_ATOM  ; break;
+        case TOKEN_NIL       : lhs = MAKE_OP_FROM_TOKEN(token, OP_NIL       , 0, TYPE_NIL    ); lot = LHS_OP_TYPE_ATOM; break;
+        case TOKEN_TRUE      : lhs = MAKE_OP_FROM_TOKEN(token, OP_TRUE      , 0, TYPE_BOOL   ); lot = LHS_OP_TYPE_ATOM; break;
+        case TOKEN_FALSE     : lhs = MAKE_OP_FROM_TOKEN(token, OP_FALSE     , 0, TYPE_BOOL   ); lot = LHS_OP_TYPE_ATOM; break;
+        case TOKEN_NUMBER    : lhs = MAKE_OP_FROM_TOKEN(token, OP_NUMBER    , 0, TYPE_FLOAT  ); lot = LHS_OP_TYPE_ATOM  ; break;
+        case TOKEN_INTEGER   : lhs = MAKE_OP_FROM_TOKEN(token, OP_INTEGER   , 0, TYPE_INT    ); lot = LHS_OP_TYPE_ATOM  ; break;
         case TOKEN_STRING    : lhs = MAKE_OP_FROM_TOKEN(token, OP_STRING    , 0, TYPE_UNKNOWN); lot = LHS_OP_TYPE_ATOM  ; break;
         case TOKEN_IDENTIFIER: lhs = MAKE_OP_FROM_TOKEN(token, OP_IDENTIFIER, 0, TYPE_UNKNOWN); lot = LHS_OP_TYPE_ATOM  ; break;
+        case TOKEN_PRINT     : lhs = MAKE_OP_FROM_TOKEN(token, OP_PRINT     , 0, TYPE_UNKNOWN); lot = LHS_OP_TYPE_ATOM  ; break;
         // Ops
-        case TOKEN_MINUS     : op  = MAKE_OP_FROM_TOKEN(token, OP_NEG    , 1, TYPE_UNKNOWN); lot = LHS_OP_TYPE_PREFIX; break;
+        case TOKEN_MINUS       : op = MAKE_OP_FROM_TOKEN(token, OP_NEG    , 1, TYPE_UNKNOWN); lot = LHS_OP_TYPE_PREFIX; break;
+        case TOKEN_BANG        : op = MAKE_OP_FROM_TOKEN(token, OP_NOT    , 1, TYPE_UNKNOWN); lot = LHS_OP_TYPE_PREFIX; break;
+        case TOKEN_PLUS_PLUS   : op = MAKE_OP_FROM_TOKEN(token, OP_PRE_INC, 1, TYPE_UNKNOWN); lot = LHS_OP_TYPE_PREFIX; break;
+        case TOKEN_MINUS_MINUS : op = MAKE_OP_FROM_TOKEN(token, OP_PRE_DEC, 1, TYPE_UNKNOWN); lot = LHS_OP_TYPE_PREFIX; break;
         // Special
         case TOKEN_LEFT_PAREN: lot = LHS_OP_TYPE_PARENS; break;
         default:
@@ -93,11 +273,7 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
             rhs = parser_parse_expr_inner(parser, right_binding_power);
 
             arrput(expr, op);
-            rhs_len = arrlen(rhs);
-            for (size_t i = 0; i < rhs_len; ++i)
-            {
-                arrput(expr, rhs[i]);
-            }
+            append_rhs_to_expr(expr, rhs);
             arrfree(rhs);
             break;
 
@@ -110,11 +286,7 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
             }
             rhs = parser_parse_expr_inner(parser, 0);
 
-            rhs_len = arrlen(rhs);
-            for (size_t i = 0; i < rhs_len; ++i)
-            {
-                arrput(expr, rhs[i]);
-            }
+            append_rhs_to_expr(expr, rhs);
             arrfree(rhs);
             parser_next(parser);
             break;
@@ -130,10 +302,30 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
         token = parser_peek(parser);
         switch (token.type)
         {
-            case TOKEN_PLUS       : op = MAKE_OP_FROM_TOKEN(token, OP_ADD   , 2, TYPE_UNKNOWN); break;
-            case TOKEN_STAR       : op = MAKE_OP_FROM_TOKEN(token, OP_MUL   , 2, TYPE_UNKNOWN); break;
-            case TOKEN_LEFT_SQUARE: op = MAKE_OP_FROM_TOKEN(token, OP_INDEX , 2, TYPE_UNKNOWN); break;
-            case TOKEN_LEFT_PAREN : op = MAKE_OP_FROM_TOKEN(token, OP_CALL  , 1, TYPE_UNKNOWN); break;
+            case TOKEN_PLUS         : op = MAKE_OP_FROM_TOKEN(token, OP_ADD          , 2, TYPE_UNKNOWN); break;
+            case TOKEN_MINUS        : op = MAKE_OP_FROM_TOKEN(token, OP_SUB          , 2, TYPE_UNKNOWN); break;
+            case TOKEN_STAR         : op = MAKE_OP_FROM_TOKEN(token, OP_MUL          , 2, TYPE_UNKNOWN); break;
+            case TOKEN_SLASH        : op = MAKE_OP_FROM_TOKEN(token, OP_DIV          , 2, TYPE_UNKNOWN); break;
+            case TOKEN_PERCENT      : op = MAKE_OP_FROM_TOKEN(token, OP_MOD          , 2, TYPE_UNKNOWN); break;
+            case TOKEN_AND          : op = MAKE_OP_FROM_TOKEN(token, OP_AND          , 2, TYPE_UNKNOWN); break;
+            case TOKEN_OR           : op = MAKE_OP_FROM_TOKEN(token, OP_OR           , 2, TYPE_UNKNOWN); break;
+            case TOKEN_EQUAL_EQUAL  : op = MAKE_OP_FROM_TOKEN(token, OP_EQUAL        , 2, TYPE_UNKNOWN); break;
+            case TOKEN_BANG_EQUAL   : op = MAKE_OP_FROM_TOKEN(token, OP_NOT_EQUAL    , 2, TYPE_UNKNOWN); break;
+            case TOKEN_GREATER      : op = MAKE_OP_FROM_TOKEN(token, OP_GREATER      , 2, TYPE_UNKNOWN); break;
+            case TOKEN_LESS         : op = MAKE_OP_FROM_TOKEN(token, OP_LESS         , 2, TYPE_UNKNOWN); break;
+            case TOKEN_GREATER_EQUAL: op = MAKE_OP_FROM_TOKEN(token, OP_GREATER_EQUAL, 2, TYPE_UNKNOWN); break;
+            case TOKEN_LESS_EQUAL   : op = MAKE_OP_FROM_TOKEN(token, OP_LESS_EQUAL   , 2, TYPE_UNKNOWN); break;
+            case TOKEN_DOT          : op = MAKE_OP_FROM_TOKEN(token, OP_ACCESS       , 2, TYPE_UNKNOWN); break;
+            case TOKEN_COLON        : op = MAKE_OP_FROM_TOKEN(token, OP_CHAIN        , 2, TYPE_UNKNOWN); break;
+            case TOKEN_EQUAL        : op = MAKE_OP_FROM_TOKEN(token, OP_ASSIGN       , 2, TYPE_UNKNOWN); break;
+            case TOKEN_PLUS_EQUAL   : op = MAKE_OP_FROM_TOKEN(token, OP_ASSIGN_ADD   , 2, TYPE_UNKNOWN); break;
+            case TOKEN_MINUS_EQUAL  : op = MAKE_OP_FROM_TOKEN(token, OP_ASSIGN_SUB   , 2, TYPE_UNKNOWN); break;
+            case TOKEN_STAR_EQUAL   : op = MAKE_OP_FROM_TOKEN(token, OP_ASSIGN_MUL   , 2, TYPE_UNKNOWN); break;
+            case TOKEN_PERCENT_EQUAL: op = MAKE_OP_FROM_TOKEN(token, OP_ASSIGN_MOD   , 2, TYPE_UNKNOWN); break;
+            case TOKEN_PLUS_PLUS    : op = MAKE_OP_FROM_TOKEN(token, OP_POST_INC     , 1, TYPE_UNKNOWN); break;
+            case TOKEN_MINUS_MINUS  : op = MAKE_OP_FROM_TOKEN(token, OP_POST_DEC     , 1, TYPE_UNKNOWN); break;
+            case TOKEN_LEFT_SQUARE  : op = MAKE_OP_FROM_TOKEN(token, OP_INDEX        , 2, TYPE_UNKNOWN); break;
+            case TOKEN_LEFT_PAREN   : op = MAKE_OP_FROM_TOKEN(token, OP_CALL         , 1, TYPE_UNKNOWN); break;
             default:
                 should_break_loop = true;
         }
@@ -158,11 +350,7 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
                 parser_next(parser); // Skip second bracket
 
                 arrins(expr, 0, op);
-                rhs_len = arrlen(rhs);
-                for (size_t i = 0; i < rhs_len; ++i)
-                {
-                    arrput(expr, rhs[i]);
-                }
+                append_rhs_to_expr(expr, rhs);
                 arrfree(rhs);
             }
             else if (op.op_type == OP_CALL)
@@ -174,11 +362,7 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
                     {
                         rhs = parser_parse_expr_inner(parser, 0);
 
-                        rhs_len = arrlen(rhs);
-                        for (size_t i = 0; i < rhs_len; ++i)
-                        {
-                            arrput(expr, rhs[i]);
-                        }
+                        append_rhs_to_expr(expr, rhs);
                         arrfree(rhs);
 
                         op.args++;
@@ -219,11 +403,8 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
             rhs = parser_parse_expr_inner(parser, right_binding_power);
             
             arrins(expr, 0, op);
-            rhs_len = arrlen(rhs);
-            for (size_t i = 0; i < rhs_len; ++i)
-            {
-                arrput(expr, rhs[i]);
-            }
+            append_rhs_to_expr(expr, rhs);
+             
             arrfree(rhs);
             continue;
         }
@@ -233,12 +414,19 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
 
     return expr;
 }
+#undef MAKE_OP_FROM_TOKEN
 
 void prefix_binding_power(ExprOpType op_type, int8_t* right)
 {
     switch (op_type)
     {
-        case OP_NEG : *right = 5; break;
+        case OP_NEG:
+        case OP_NOT:
+        case OP_PRE_INC:
+        case OP_PRE_DEC:
+            *right = 11;
+            break;
+
         default:
             fprintf(stderr, "Parser line %d: Operator is not prefix.\n", __LINE__);
             exit(1);
@@ -249,31 +437,95 @@ bool postfix_binding_power(ExprOpType op_type, int8_t* left)
 {
     switch (op_type)
     {
-        case OP_INDEX : *left = 7; break;
-        case OP_CALL  : *left = 7; break;
+        case OP_INDEX:
+        case OP_CALL:
+            *left = 15;
+            break;
+
+        case OP_POST_INC:
+        case OP_POST_DEC:
+            *left = 13;
+            break;
+
         default:
             return false;
     }
+
     return true;
 }
 
-bool infix_binding_power(ExprOpType op_type, int8_t* left, int8_t* right)
+bool infix_binding_power(
+    ExprOpType op_type,
+    int8_t* left,
+    int8_t* right)
 {
     switch (op_type)
     {
-        case OP_ADD : *left = 1; *right = 2; break;
-        case OP_MUL : *left = 3; *right = 4; break;
+        case OP_ASSIGN:
+        case OP_ASSIGN_ADD:
+        case OP_ASSIGN_SUB:
+        case OP_ASSIGN_MUL:
+        case OP_ASSIGN_MOD:
+            *left  = 2;
+            *right = 1;
+            break;
+
+        case OP_OR:
+            *left  = 3;
+            *right = 4;
+            break;
+
+        case OP_AND:
+            *left  = 5;
+            *right = 6;
+            break;
+
+        case OP_EQUAL:
+        case OP_NOT_EQUAL:
+            *left  = 7;
+            *right = 8;
+            break;
+
+        case OP_GREATER:
+        case OP_LESS:
+        case OP_GREATER_EQUAL:
+        case OP_LESS_EQUAL:
+            *left  = 9;
+            *right = 10;
+            break;
+
+        case OP_ADD:
+        case OP_SUB:
+            *left  = 11;
+            *right = 12;
+            break;
+
+        case OP_MUL:
+        case OP_DIV:
+        case OP_MOD:
+            *left  = 13;
+            *right = 14;
+            break;
+
+        case OP_ACCESS:
+        case OP_CHAIN:
+            *left  = 17;
+            *right = 16;
+            break;
+
         default:
             return false;
-            //fprintf(stderr, "Parser line %d: Operator is not infix.\n", __LINE__);
-            //exit(1);
     }
+
     return true;
 }
 
-//    return parser_parse_expr_inner_inner(parser);
-//ExprOp* parser_parse_expr_inner_inner(parser)
-//{
-//}
+void append_rhs_to_expr(ExprOp* expr, ExprOp* rhs)
+{
+    size_t rhs_len = arrlen(rhs);
+    for (size_t i = 0; i < rhs_len; ++i)
+    {
+        arrput(expr, rhs[i]);
+    }
+}
 
-#undef MAKE_OP_FROM_TOKEN

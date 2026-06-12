@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "stb_ds.h" // Dynamic strings and hashmaps.
 /*
@@ -43,5 +44,16 @@ The following functions are defined:
     arrcap - returns the internal capacity, the maximum length the array can be without reallocating it
     arrsetcap - sets the internal capacity. it is not possible to shrink the capacity (currently) 
 */
+
+#define append_list_to_list(ls_a, ls_b) \
+    do\
+    {\
+        size_t rhs_len = arrlen(ls_b);\
+        for (size_t i = 0; i < rhs_len; ++i)\
+            arrput(ls_a, (ls_b)[i]);\
+    }\
+    while(0)
+
+#include "arena.h"
 
 #endif

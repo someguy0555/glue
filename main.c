@@ -6,6 +6,7 @@
 // Needs to be freed.
 int main(int argc, char** argv)
 {
+    assert(sizeof(Stmt) == 8);
     if (argc < 2)
     {
         fprintf(stderr, "Not enough arguments\n");
@@ -35,7 +36,8 @@ int main(int argc, char** argv)
     }
 
     Parser parser = init_parser(scanner);
-    ExprOp* eo = parser_parse_expr(&parser);
+    size_t eo_1 = parser_parse_expr(&parser);
+    ExprOp* eo = get_arena_element(&(parser.arena), eo_1);
     int32_t eolen = arrlen(eo);
 
     for (int32_t i = 0; i < eolen; ++i)

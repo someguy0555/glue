@@ -10,9 +10,6 @@ typedef enum
     TOKEN_LEFT_PAREN , TOKEN_RIGHT_PAREN,
     TOKEN_LEFT_BRACE , TOKEN_RIGHT_BRACE,
     TOKEN_LEFT_SQUARE, TOKEN_RIGHT_SQUARE,
-    TOKEN_MINUS, TOKEN_PLUS,
-    TOKEN_STAR,
-    TOKEN_PERCENT,
     TOKEN_PIPE,
     TOKEN_COMMA,
     TOKEN_SEMICOLON,
@@ -20,12 +17,17 @@ typedef enum
     TOKEN_NEWLINE,
 
     // One or two character tokens.
-    TOKEN_EQUAL  , TOKEN_EQUAL_EQUAL  , TOKEN_EQUAL_GREATER,
-    TOKEN_SLASH  , TOKEN_SLASH_EQUAL  ,
-    TOKEN_LESS   , TOKEN_LESS_EQUAL   ,
-    TOKEN_GREATER, TOKEN_GREATER_EQUAL,
-    TOKEN_DOT    , TOKEN_DOT_DOT      ,
-    TOKEN_COLON  , TOKEN_COLON_COLON  ,
+    TOKEN_BANG      , TOKEN_BANG_EQUAL   ,
+    TOKEN_EQUAL     , TOKEN_EQUAL_EQUAL  , TOKEN_EQUAL_GREATER,
+    TOKEN_LESS      , TOKEN_LESS_EQUAL   ,
+    TOKEN_GREATER   , TOKEN_GREATER_EQUAL,
+    TOKEN_DOT       , TOKEN_DOT_DOT      ,
+    TOKEN_COLON     , TOKEN_COLON_COLON  ,
+    TOKEN_PLUS      , TOKEN_PLUS_EQUAL   , TOKEN_PLUS_PLUS    ,
+    TOKEN_MINUS     , TOKEN_MINUS_EQUAL  , TOKEN_MINUS_MINUS  ,
+    TOKEN_STAR      , TOKEN_STAR_EQUAL   ,
+    TOKEN_SLASH     , TOKEN_SLASH_EQUAL  ,
+    TOKEN_PERCENT   , TOKEN_PERCENT_EQUAL,
 
     // Literals.
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_INTEGER, TOKEN_NUMBER, TOKEN_COMMENT,
@@ -47,6 +49,7 @@ TokenType;
 
 const char* token_type_name(TokenType type);
 
+    //Given T is a structure type: struct { TK key; TV value; }. Note that some
 typedef struct
 {
     TokenType type;
@@ -98,5 +101,7 @@ bool scanner_match_string(Scanner* scanner, const char* str, int32_t already_sca
 bool is_identifier_middle(char c);
 bool is_identifier_end(char c);
 Token scanner_scan_identifier(Scanner* scanner);
+
+bool is_newline(TokenType type);
 
 #endif
