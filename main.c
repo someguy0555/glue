@@ -36,25 +36,12 @@ int main(int argc, char** argv)
     }
 
     Parser parser = init_parser(scanner);
-    size_t eo_1 = parser_parse_expr(&parser);
-    ExprOp* eo = get_arena_element(&(parser.arena), eo_1);
-    int32_t eolen = arrlen(eo);
 
-    for (int32_t i = 0; i < eolen; ++i)
-    {
-        ExprOp e = eo[i];
+    // ExprOp* expr = parser_parse_expr(&parser);
+    // print_expr_op(expr);
 
-        printf(
-            "[%d:%d:%d]: '%.*s'\n",
-            e.line   ,
-            e.column ,
-            e.length ,
-            e.length ,
-            e.literal
-        );
-    }
-
-    //print_expr_op(
+    Stmt* stmt = parser_parse_stmt(&parser, 0);
+    print_stmt(stmt);
 
     return 0;
 }

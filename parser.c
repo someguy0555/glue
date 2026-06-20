@@ -4,14 +4,19 @@ Parser init_parser(Scanner scanner)
 {
     Parser parser =
     {
-        .txt      = scanner.init              ,
-        .tokens   = scanner.token_list        ,
-        .arena    = init_arena()              ,
-        .start    = 0                         ,
-        .end      = arrlen(scanner.token_list),
-        .current  = 0
+        .state        = PARSER_STATE_UNPARSED     ,
+        .txt          = scanner.init              ,
+        .tokens       = scanner.token_list        ,
+        .start        = 0                         ,
+        .end          = arrlen(scanner.token_list),
+        .current      = 0                         ,
+        .exprs        = NULL                      ,
+        .identifiers  = NULL                      ,
+        .str_literals = NULL                      ,
+        .int_literals = NULL                      ,
+        .num_literals = NULL                      ,
+        .log          = NULL                      ,
     };
-    push_arena(&(parser.arena ), sizeof(char) * 1, &parser);
 
     return parser;
 }
@@ -69,18 +74,18 @@ bool is_newline(TokenType type)
     }
 }
 
-void stmt_append_header(Stmt* stmt, StmtType type, int32_t depth, int32_t line, int32_t column, int32_t length)
+void stmt_append_header(Stmt** stmt, StmtType type, int depth, int line, int column, int length)
 {
     Stmt node;
     node = (Stmt){ .header = { .type = type, .depth = depth }};
-    arrput(stmt, node);
+    arrput(*stmt, node);
     node = (Stmt){ .position = { .line = line, .column = column }};
-    arrput(stmt, node);
+    arrput(*stmt, node);
     node = (Stmt){ .length = length };
-    arrput(stmt, node);
+    arrput(*stmt, node);
 }
 
-Stmt* parser_parse_stmts(Parser* parser, int32_t depth)
+Stmt* parser_parse_stmts(Parser* parser, int depth)
 {
     Stmt* curr_stmt = NULL;
     Stmt* recv_stmt = NULL;
@@ -98,20 +103,20 @@ Stmt* parser_parse_stmts(Parser* parser, int32_t depth)
     return curr_stmt;
 }
 
-Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
+Stmt* parser_parse_stmt(Parser* parser, int depth)
 {
     Token tok;
     Stmt* curr_stmt = NULL;
     Stmt* recv_stmt = NULL;
 
-    Stmt  str_node;
+    Stmt identifier_node;
     Stmt type_node;
     Stmt expr_node;
-    Stmt  err_node;
+    Stmt err_node;
 
-    size_t type_ptr;
-    size_t expr_ptr;
-    size_t  str_ptr;
+    ExprOp* type_ptr = NULL;
+    ExprOp* expr_ptr = NULL;
+    char*   identifier_ptr = NULL;
 
     parser_skip(parser, is_newline);
 
@@ -121,7 +126,7 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
         case TOKEN_LET:
 
             parser_next(parser);
-            str_ptr = parser_parse_identifier(parser);
+            identifier_ptr = parser_parse_identifier(parser);
 
             if (parser_peek(parser).type == TOKEN_COLON)
             {
@@ -133,20 +138,20 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
                     parser_next(parser);
                     expr_ptr = parser_parse_expr(parser);
 
-                    stmt_append_header(curr_stmt, STMT_LET_TYPE_AND_EXPR, depth, tok.line, tok.column, 0);
-                     str_node = (Stmt){ .arena_ptr =  str_ptr };
-                    type_node = (Stmt){ .arena_ptr = type_ptr };
-                    expr_node = (Stmt){ .arena_ptr = expr_ptr };
-                    arrput(curr_stmt,  str_node);
+                    stmt_append_header(&curr_stmt, STMT_LET_TYPE_AND_EXPR, depth, tok.line, tok.column, 0);
+                    identifier_node = (Stmt){ .literal = identifier_ptr };
+                    type_node       = (Stmt){ .expr   = type_ptr };
+                    expr_node       = (Stmt){ .expr   = expr_ptr };
+                    arrput(curr_stmt,  identifier_node);
                     arrput(curr_stmt, type_node);
                     arrput(curr_stmt, expr_node);
                 }
                 else
                 {
-                    stmt_append_header(curr_stmt, STMT_LET_TYPE, depth, tok.line, tok.column, 0);
-                     str_node = (Stmt){ .arena_ptr =  str_ptr };
-                    type_node = (Stmt){ .arena_ptr = type_ptr };
-                    arrput(curr_stmt,  str_node);
+                    stmt_append_header(&curr_stmt, STMT_LET_TYPE, depth, tok.line, tok.column, 0);
+                    identifier_node = (Stmt){ .literal = identifier_ptr };
+                    type_node       = (Stmt){ .expr = type_ptr };
+                    arrput(curr_stmt,  identifier_node);
                     arrput(curr_stmt, type_node);
                 }
             }
@@ -157,17 +162,17 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
                     parser_next(parser);
                     expr_ptr = parser_parse_expr(parser);
 
-                    stmt_append_header(curr_stmt, STMT_LET_EXPR, depth, tok.line, tok.column, 0);
-                     str_node = (Stmt){ .arena_ptr =  str_ptr };
-                    expr_node = (Stmt){ .arena_ptr = expr_ptr };
-                    arrput(curr_stmt,  str_node);
+                    stmt_append_header(&curr_stmt, STMT_LET_EXPR, depth, tok.line, tok.column, 0);
+                    identifier_node = (Stmt){ .literal = identifier_ptr };
+                    expr_node       = (Stmt){ .expr    = expr_ptr };
+                    arrput(curr_stmt,  identifier_node);
                     arrput(curr_stmt, expr_node);
                 }
                 else
                 {
-                    stmt_append_header(curr_stmt, STMT_LET_BARE, depth, tok.line, tok.column, 0);
-                     str_node = (Stmt){ .arena_ptr =  str_ptr };
-                    arrput(curr_stmt,  str_node);
+                    stmt_append_header(&curr_stmt, STMT_LET_BARE, depth, tok.line, tok.column, 0);
+                    identifier_node = (Stmt){ .literal  = identifier_ptr };
+                    arrput(curr_stmt,  identifier_node);
                 }
             }
             return curr_stmt;
@@ -176,7 +181,9 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
             parser_next(parser);
             expr_ptr = parser_parse_expr(parser);
             
-            stmt_append_header(curr_stmt, STMT_IF, depth, tok.line, tok.column, 0);
+            stmt_append_header(&curr_stmt, STMT_IF, depth, tok.line, tok.column, 0);
+            expr_node = (Stmt){ .expr = expr_ptr };
+            arrput(curr_stmt, expr_node);
 
             tok = parser_peek(parser);
             if (is_newline(tok.type))
@@ -184,7 +191,7 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
                 parser_skip(parser, is_newline);
                 recv_stmt = parser_parse_stmt(parser, depth + 1);
                 append_list_to_list(curr_stmt, recv_stmt);
-                arrfree(recv_stmt);
+                arrfree_and_set_null(recv_stmt);
             }
             else if (tok.type == TOKEN_DO)
             {
@@ -197,12 +204,12 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
                 else
                 {
                     append_list_to_list(curr_stmt, recv_stmt);
-                    arrfree(recv_stmt);
+                    arrfree_and_set_null(recv_stmt);
                 }
             }
             else
             {
-                stmt_append_header(curr_stmt, STMT_ERR, depth, tok.line, tok.column, 0);
+                stmt_append_header(&curr_stmt, STMT_ERR, depth, tok.line, tok.column, 0);
             }
 
             return curr_stmt;
@@ -210,7 +217,9 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
             parser_next(parser);
             expr_ptr = parser_parse_expr(parser);
             
-            stmt_append_header(curr_stmt, STMT_WHILE, depth, tok.line, tok.column, 0);
+            stmt_append_header(&curr_stmt, STMT_WHILE, depth, tok.line, tok.column, 0);
+            expr_node = (Stmt){ .expr = expr_ptr };
+            arrput(curr_stmt, expr_node);
 
             tok = parser_peek(parser);
             if (is_newline(tok.type))
@@ -218,7 +227,7 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
                 parser_skip(parser, is_newline);
                 recv_stmt = parser_parse_stmt(parser, depth + 1);
                 append_list_to_list(curr_stmt, recv_stmt);
-                arrfree(recv_stmt);
+                arrfree_and_set_null(recv_stmt);
             }
             else if (tok.type == TOKEN_DO)
             {
@@ -231,12 +240,12 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
                 else
                 {
                     append_list_to_list(curr_stmt, recv_stmt);
-                    arrfree(recv_stmt);
+                    arrfree_and_set_null(recv_stmt);
                 }
             }
             else
             {
-                stmt_append_header(curr_stmt, STMT_ERR, depth, tok.line, tok.column, 0);
+                stmt_append_header(&curr_stmt, STMT_ERR, depth, tok.line, tok.column, 0);
             }
 
             return curr_stmt;
@@ -255,35 +264,38 @@ Stmt* parser_parse_stmt(Parser* parser, int32_t depth)
     }
 }
 
-size_t parser_parse_identifier(Parser* parser)
+char* parser_parse_identifier(Parser* parser)
 {
     Token token = parser_next(parser);
     if (token.type != TOKEN_IDENTIFIER)
     {
-        perror("Parser line %d: The next token is not an identifier.\n");
+        fprintf(stderr, "Parser line %d: The next token is not an identifier.\n", __LINE__);
         exit(1);
     }
-    char zero = '\0';
-    size_t ptr = push_arena(&(parser->arena), token.length * sizeof(char), token.start);
-    push_arena(&(parser->arena), sizeof(char), &zero);
-    return ptr;
+
+    char* identifier = calloc((size_t)token.length + 1, sizeof(char)); // This sets everything to '\0'
+    if (identifier == NULL)
+    {
+        fprintf(stderr, "Failed to allocate memory in %s:%d.\n", __FILE__, __LINE__);
+        exit(1);
+    }
+    arrput(parser->identifiers, identifier);
+    return identifier;
 }
 
-Stmt* parser_parse_block(Parser* parser, int32_t depth)
+Stmt* parser_parse_block(Parser* parser, int depth)
 {
-    perror("Parser line %d: Not implemented yet.\n");
+    fprintf(stderr, "Parser line %d: Not implemented yet.\n", __LINE__);
     exit(1);
 }
 
-size_t parser_parse_expr(Parser* parser)
+ExprOp* parser_parse_expr(Parser* parser)
 {
     ExprOp* expr  = parser_parse_expr_inner(parser, 0);
-    size_t length = arrlen(expr) * sizeof(ExprOp);
-    size_t ptr    = push_arena(&(parser->arena), length, expr);
-    arrfree_and_set_null(expr);
-    return ptr;
+    return expr;
 }
 
+// TODO: Rework this to add literals to parser storage.
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 #define MAKE_OP_FROM_TOKEN(token, oper_type, argsn, expr_type) (ExprOp){\
         .op_type = (oper_type),\
@@ -294,7 +306,7 @@ size_t parser_parse_expr(Parser* parser)
         .column = (token).column,\
         .length = (token).length\
     } 
-ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
+ExprOp* parser_parse_expr_inner(Parser* parser, int min_binding_power)
 {
     ExprOp* expr = NULL;
     Token token;
@@ -302,7 +314,7 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
     ExprOp  lhs;
     ExprOp  op ;
     ExprOp* rhs = NULL;
-    int8_t left_binding_power, right_binding_power;
+    int left_binding_power, right_binding_power;
 
     // Parse first literal
     token = parser_next(parser);
@@ -487,9 +499,40 @@ ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power)
     return expr;
 
 }
+
+ExprOp* parser_parse_type(Parser* parser)
+{
+    ExprOp* type = parser_parse_type_inner(parser, 0);
+    return type;
+}
+
+// TODO: Rework this to add literals to parser storage.
+ExprOp* parser_parse_type_inner(Parser* parser, int min_binding_power)
+{
+    ExprOp* expr = NULL;
+    Token token;
+
+    ExprOp  lhs;
+
+    // Parse first literal
+    token = parser_next(parser);
+    switch (token.type)
+    {
+        // Atoms
+        case TOKEN_IDENTIFIER: lhs = MAKE_OP_FROM_TOKEN(token, OP_IDENTIFIER, 0, TYPE_UNKNOWN); break;
+        default:
+            fprintf(stderr, "Parser line %d: Could not find atomic expression.\n", __LINE__);
+            exit(1);
+    }
+    arrput(expr, lhs);
+    
+    // print_expr_op(expr);
+    return expr;
+
+}
 #undef MAKE_OP_FROM_TOKEN
 
-void prefix_binding_power(ExprOpType op_type, int8_t* right)
+void prefix_binding_power(ExprOpType op_type, int* right)
 {
     switch (op_type)
     {
@@ -506,7 +549,7 @@ void prefix_binding_power(ExprOpType op_type, int8_t* right)
     }
 }
 
-bool postfix_binding_power(ExprOpType op_type, int8_t* left)
+bool postfix_binding_power(ExprOpType op_type, int* left)
 {
     switch (op_type)
     {
@@ -529,8 +572,8 @@ bool postfix_binding_power(ExprOpType op_type, int8_t* left)
 
 bool infix_binding_power(
     ExprOpType op_type,
-    int8_t* left,
-    int8_t* right)
+    int* left,
+    int* right)
 {
     switch (op_type)
     {
@@ -604,10 +647,10 @@ void append_rhs_to_expr(ExprOp** expr, ExprOp** rhs)
 }
 
 // TODO: Implement later
-size_t parser_parse_type(Parser* parser)
-{
-    return ARENA_NULL;
-}
+// ExprOp* parser_parse_expr(Parser* parser)
+// {
+//     return ARENA_NULL;
+// }
 
 const char* show_op_type(ExprOpType op)
 {
@@ -670,5 +713,122 @@ void print_expr_op(ExprOp* op)
             e.length ,
             e.literal
         );
+    }
+}
+
+const char* stmt_type_name(StmtType type)
+{
+    switch (type)
+    {
+        case STMT_ERR:       return "STMT_ERR";
+        case STMT_LET_BARE:  return "STMT_LET_BARE";
+        case STMT_LET_TYPE:  return "STMT_LET_TYPE";
+        case STMT_LET_EXPR:  return "STMT_LET_EXPR";
+        case STMT_LET_TYPE_AND_EXPR: return "STMT_LET_TYPE_AND_EXPR";
+        case STMT_EXPR:              return "STMT_EXPR";
+        case STMT_IF:                return "STMT_IF";
+        case STMT_ELIF:              return "STMT_ELIF";
+        case STMT_ELSE:              return "STMT_ELSE";
+        case STMT_WHILE:             return "STMT_WHILE";
+        case STMT_BREAK:             return "STMT_BREAK";
+        case STMT_CONTINUE:          return "STMT_CONTINUE";
+        case STMT_FN:                return "STMT_FN";
+        case STMT_RETURN:            return "STMT_RETURN";
+        case STMT_EMPTY:             return "STMT_EMPTY";
+        default:                     return "UNKNOWN";
+    }
+}
+
+void print_stmt(Stmt* stmt)
+{
+    if (stmt == NULL)
+    {
+        printf("<null stmt>\n");
+        return;
+    }
+
+    StmtType type = stmt[0].header.type;
+    int depth     = stmt[0].header.depth;
+
+    int line      = stmt[1].position.line;
+    int column    = stmt[1].position.column;
+
+    printf("%s (depth=%d, line=%d, column=%d)\n",
+           stmt_type_name(type),
+           depth,
+           line,
+           column);
+
+    switch (type)
+    {
+        case STMT_LET_BARE:
+        {
+            printf("  identifier = %s\n",
+                   stmt[3].literal);
+            break;
+        }
+
+        case STMT_LET_TYPE:
+        {
+            printf("  identifier = %s\n",
+                   stmt[3].literal);
+
+            printf("  type expr:\n");
+            print_expr_op(stmt[4].expr);
+            break;
+        }
+
+        case STMT_LET_EXPR:
+        {
+            printf("  identifier = %s\n",
+                   stmt[3].literal);
+
+            printf("  value expr:\n");
+            print_expr_op(stmt[4].expr);
+            break;
+        }
+
+        case STMT_LET_TYPE_AND_EXPR:
+        {
+            printf("  identifier = %s\n",
+                   stmt[3].literal);
+
+            printf("  type expr:\n");
+            print_expr_op(stmt[4].expr);
+
+            printf("  value expr:\n");
+            print_expr_op(stmt[5].expr);
+            break;
+        }
+
+        case STMT_IF:
+        {
+            printf("  if statement\n");
+            break;
+        }
+
+        case STMT_WHILE:
+        {
+            printf("  while statement\n");
+            break;
+        }
+
+        case STMT_EMPTY:
+        {
+            printf("  empty\n");
+            break;
+        }
+
+        case STMT_ERR:
+        {
+            printf("  error node\n");
+            break;
+        }
+
+        default:
+        {
+            printf("  printer not implemented for this stmt type\n");
+            break;
+        }
     }
 }

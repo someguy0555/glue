@@ -32,25 +32,6 @@ typedef enum
 }
 StmtType;
 
-typedef union
-{
-    struct
-    {
-        StmtType type ;
-        int32_t  depth;
-    }
-    header;
-    struct
-    {
-        int32_t line  ;
-        int32_t column;
-    }
-    position;
-    int32_t length;
-    size_t arena_ptr;
-}
-Stmt;
-
 typedef enum
 {
     // Atom
@@ -115,25 +96,63 @@ typedef struct
 {
     ExprOpType     op_type ;
     ExprAtomicType type    ;
-    int32_t        args    ;
+    int            args    ;
 
-    const char* literal ;
-    int32_t line  ;
-    int32_t column;
-    int32_t length;
+    const char* literal;     // Points to parser literals (string, int, num, etc.)
+    int line  ;
+    int column;
+    int length;
 }
 ExprOp;
 
+typedef union
+{
+    struct
+    {
+        StmtType type ;
+        int depth;
+    }
+    header;
+
+    struct
+    {
+        int line  ;
+        int column;
+    }
+    position;
+    int length;
+
+    ExprOp* expr;
+    char  * literal;
+}
+Stmt;
+
+typedef enum
+{
+    PARSER_STATE_UNPARSED,
+    PARSER_STATE_PARSED  ,
+}
+ParserState;
+
 typedef struct
 {
+    ParserState state ;
     const char* txt   ;
+
     Token*      tokens;
+    int start;
+    int end;
+    int current;
 
-    Arena arena;
+    // All of these have to be free at a later date.
+    ExprOp* exprs; // Not used right now
+    char**  identifiers ;
+    char**  str_literals; // Not used right now
+    char**  int_literals; // Not used right now
+    char**  num_literals; // Not used right now
 
-    int32_t start;
-    int32_t end;
-    int32_t current;
+    // If we fail to parse something for whatever reason, we append and error message here.
+    char** log;
 }
 Parser;
 
@@ -151,28 +170,35 @@ typedef enum
 }
 LhsOpType;
 
-void stmt_append_header(Stmt* stmt, StmtType type, int32_t depth, int32_t line, int32_t column, int32_t length);
-Stmt* parser_parse_stmts(Parser* parser, int32_t depth);
-Stmt* parser_parse_stmt(Parser* parser, int32_t depth);
+void stmt_append_header(Stmt** stmt, StmtType type, int depth, int line, int column, int length);
+Stmt* parser_parse_stmts(Parser* parser, int depth);
+Stmt* parser_parse_stmt(Parser* parser, int depth);
 bool parser_skip(Parser* parser, bool (*predicate)(TokenType));
 bool is_newline(TokenType type);
-size_t parser_parse_identifier(Parser* parser);
-size_t parser_parse_type(Parser* parser);
-Stmt* parser_parse_block(Parser* parser, int32_t depth);
+char* parser_parse_identifier(Parser* parser);
+// size_t parser_parse_type(Parser* parser);
+Stmt* parser_parse_block(Parser* parser, int depth);
 
-size_t parser_parse_expr(Parser* parser);
-ExprOp* parser_parse_expr_inner(Parser* parser, int8_t min_binding_power);
+ExprOp* parser_parse_expr(Parser* parser);
+ExprOp* parser_parse_expr_inner(Parser* parser, int min_binding_power);
 
-void prefix_binding_power(ExprOpType op_type, int8_t* right);
-bool postfix_binding_power(ExprOpType op_type, int8_t* left);
-bool infix_binding_power(ExprOpType op_type, int8_t* left, int8_t* right);
+ExprOp* parser_parse_type(Parser* parser);
+ExprOp* parser_parse_type_inner(Parser* parser, int min_binding_power);
+
+void prefix_binding_power(ExprOpType op_type, int* right);
+bool postfix_binding_power(ExprOpType op_type, int* left);
+bool infix_binding_power(ExprOpType op_type, int* left, int* right);
 
 void append_rhs_to_expr(ExprOp** expr, ExprOp** rhs);
 
-//ExprOp* parser_parse_expr_inner(Parser parser, int8_t minimum_binding_power);
+//ExprOp* parser_parse_expr_inner(Parser parser, int minimum_binding_power);
 
-//void infix_binding_power(ExprOpType op, int8_t* left, int8_t* right);
-//void prefix_binding_power(ExprOp op, int8_t* right);
+//void infix_binding_power(ExprOpType op, int* left, int* right);
+//void prefix_binding_power(ExprOp op, int* right);
 void print_expr_op(ExprOp* op);
+
+
+const char* stmt_type_name(StmtType type);
+void print_stmt(Stmt* stmt);
 
 #endif

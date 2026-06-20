@@ -1,28 +1,40 @@
 #ifndef ARENA_H
 #define ARENA_H
 
+#define ARENA_MINIMUM_BLOCK_CAPACITY 4096 // The size of a virtual memory page I believe
+#define ARENA_MINIMUM_BLOCK_LIST_CAPACITY 4
+#define ARENA_ALIGNMENT 8
+
+// #define ALIGN8(x) (((x) + 7) & ~7)
+// #define ALIGN(old, sz) ((old) % (sz) == 0 ? (old) : (((old)%(sz)+1) * (sz)))
+// #define ALIGN(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
+// #define ALIGN(x, a) ((((x) + (a) - 1) / (a)) * (a))
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
-#define ARENA_INITIAL_CAPACITY 256
+typedef struct
+{
+    // In bytes
+    void*  body;
+    size_t capacity;
+    size_t size;
+}
+ArenaBlock;
 
 typedef struct
 {
-    void*  body;
+    ArenaBlock* body;
     size_t capacity;
     size_t size;
 }
 Arena;
 
-Arena  init_arena              ();
-void   free_arena              (Arena* arena);
+void arena_init(Arena* arena);
+void arena_free(Arena* arena);
 
-void   arena_alloc_and_set_size(Arena* arena, size_t new_size);
-size_t push_arena              (Arena* arena, size_t obj_size, const void* obj);
-size_t pop_arena               (Arena* arena, size_t obj_size);
-
-void* get_arena_element       (Arena* arena, size_t ptr);
+void* arena_push(Arena* arena, void* obj, size_t size);
 
 #endif

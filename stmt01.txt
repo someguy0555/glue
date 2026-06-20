@@ -1,0 +1,8 @@
+let a : Int = 5
+if a == true; break
+
+while a do
+	let b = 0
+	let c = 1
+	return c + b
+end
