@@ -39,8 +39,10 @@ int main(int argc, char** argv)
     // ExprOp* expr = parser_parse_expr(&parser);
     // print_expr_op(expr);
 
-    // Stmt* stmt = parser_parse_stmt(&parser);
-    parser_parse_stmt(&parser);
+    Stmt* stmt = parser_parse_stmt(&parser);
+    // parser_parse_stmt(&parser);
+
+    print_stmt(stmt);
 
     return 0;
 }

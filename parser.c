@@ -921,3 +921,182 @@ const char* stmt_type_name(StmtKind kind)
         default:                     return "UNKNOWN";
     }
 }
+
+static void print_indent(int depth)
+{
+    for (int i = 0; i < depth; ++i)
+        printf("  ");
+}
+
+static void print_stmt_inner(Stmt* stmt, int depth)
+{
+    if (stmt == NULL)
+    {
+        print_indent(depth);
+        printf("<null>\n");
+        return;
+    }
+
+    switch (stmt->kind)
+    {
+        case STMT_LET:
+        {
+            print_indent(depth);
+
+            printf("LET");
+
+            if (stmt->stmt.let)
+            {
+                printf(" %s",
+                       stmt->stmt.let->identifier);
+            }
+
+            if (stmt->stmt.let->expr != NULL)
+            {
+                print_expr_op(stmt->stmt.let->expr);
+            }
+
+            printf("\n");
+            break;
+        }
+
+        case STMT_EXPR:
+        {
+            print_indent(depth);
+            printf("EXPR\n");
+
+            /* print_expr(stmt->stmt.expr); */
+
+            break;
+        }
+
+        case STMT_IF:
+        {
+            StmtIf* if_stmt = stmt->stmt.if_stmt;
+
+            print_indent(depth);
+            printf("IF\n");
+
+            print_indent(depth + 1);
+            printf("condition\n");
+
+            /* print_expr(if_stmt->condition); */
+
+            print_indent(depth + 1);
+            printf("body\n");
+
+            print_stmt_inner(if_stmt->body,
+                             depth + 2);
+
+            StmtElif* curr = if_stmt->stmt_else;
+
+            while (curr)
+            {
+                print_indent(depth + 1);
+
+                if (curr->condition)
+                    printf("ELIF\n");
+                else
+                    printf("ELSE\n");
+
+                print_stmt_inner(curr->body,
+                                 depth + 2);
+
+                curr = curr->stmt_else;
+            }
+
+            break;
+        }
+
+        case STMT_WHILE:
+        {
+            StmtWhile* while_stmt = stmt->stmt.while_stmt;
+
+            print_indent(depth);
+            printf("WHILE\n");
+
+            print_indent(depth + 1);
+            printf("body\n");
+
+            print_stmt_inner(while_stmt->body,
+                             depth + 2);
+
+            break;
+        }
+
+        case STMT_FN:
+        {
+            StmtFn* fn = stmt->stmt.fn;
+
+            print_indent(depth);
+
+            printf("FN %s (%d args)\n",
+                   fn->identifier,
+                   fn->argc);
+
+            if (fn->body)
+            {
+                print_indent(depth + 1);
+                printf("body\n");
+
+                for (int i = 0; i < fn->body->size; ++i)
+                {
+                    print_stmt_inner(
+                        &fn->body->stmts[i],
+                        depth + 2
+                    );
+                }
+            }
+
+            break;
+        }
+
+        case STMT_RETURN:
+        {
+            print_indent(depth);
+            printf("RETURN\n");
+            break;
+        }
+
+        case STMT_BREAK:
+        {
+            print_indent(depth);
+            printf("BREAK\n");
+            break;
+        }
+
+        case STMT_CONTINUE:
+        {
+            print_indent(depth);
+            printf("CONTINUE\n");
+            break;
+        }
+
+        case STMT_EMPTY:
+        {
+            print_indent(depth);
+            printf("EMPTY\n");
+            break;
+        }
+
+        case STMT_ERR:
+        {
+            print_indent(depth);
+            printf("ERROR\n");
+            break;
+        }
+
+        default:
+        {
+            print_indent(depth);
+            printf("UNKNOWN STMT (%d)\n",
+                   stmt->kind);
+            break;
+        }
+    }
+}
+
+void print_stmt(Stmt* stmt)
+{
+    print_stmt_inner(stmt, 0);
+}

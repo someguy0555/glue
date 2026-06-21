@@ -290,5 +290,6 @@ bool infix_binding_power(ExprOpKind op_type, int* left, int* right);
 void append_rhs_to_expr(ExprOp** expr, ExprOp** rhs);
 
 void print_expr_op(ExprOp* op);
+void print_stmt(Stmt* stmt);
 
 #endif
