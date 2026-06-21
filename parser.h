@@ -259,6 +259,9 @@ Parser free_parser(Scanner scanner);
 Token parser_peek(Parser* parser);
 Token parser_next(Parser* parser);
 
+Token parser_jump(Parser* parser, int new_state);
+Token parser_restore(Parser* parser, int old_state);
+
 // Stmt
 Stmt     * parser_parse_stmt(Parser* parser);
 

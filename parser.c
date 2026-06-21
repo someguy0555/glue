@@ -43,6 +43,28 @@ Token parser_next(Parser* parser)
     return token;
 }
 
+Token parser_jump(Parser* parser, int new_state)
+{
+    if (new_state < parser->start || parser->state < new_state)
+    {
+        fprintf(stderr, "[%s:%d] Statement parsing: Cannot jump out of bounds.\n", __FILE__, __LINE__);
+        exit(1);
+    }
+
+    parser->current = new_state;
+    return parser_peek(parser);
+}
+
+Token parser_restore(Parser* parser, int old_state)
+{
+    if (parser->current < old_state)
+    {
+        fprintf(stderr, "[%s:%d] Statement parsing: Cannot restore state to new state.\n", __FILE__, __LINE__);
+        exit(1);
+    }
+
+    return parser_jump(parser, old_state);
+}
 
 bool parser_skip(Parser* parser, bool (*predicate)(TokenType))
 {
@@ -165,9 +187,60 @@ Stmt* parser_parse_stmt(Parser* parser)
             // parser_parse_block(parser);
 
         default:
+            // Otherwise we are assuming the statement is an expression.
             fprintf(stderr, "[%s:%d] Statement parsing: Unexpected token encountered.\n", __FILE__, __LINE__);
             exit(1);
     }
+}
+
+StmtBlock* parser_parse_stmt_block(Parser* parser)
+{
+    StmtBlock* = NULL;
+    int start  = -1;
+    int end    = -1;
+
+    unsigned int depth = 1;
+
+    parser_next(parser);
+    start = parser->current;
+    end   = parser->end    ;
+
+    while (depth > 0)
+    {
+        Token token = parse_next(parser);
+        if (token.type == TOKEN_ERROR)
+        {
+            fprintf(stderr, "[%s:%d] Statement parsing: could not find the end of 'do' block.\n", __FILE__, __LINE__);
+            exit(1);
+        }
+        else if (token.type == TOKEN_DO)
+        {
+            ++depth;
+        }
+        else if (token.type == TOKEN_END)
+        {
+            --depth;
+        }
+    }
+
+
+    if (parser->current == start + 1)
+    {
+    }
+    else if (parser->current < start + 1)
+    {
+        fprintf(stderr, "[%s:%d] Statement parsing: Do block somehow ended before it started (Really weird error).\n", __FILE__, __LINE__);
+        exit(1);
+    }
+    else
+    {
+    }
+
+    // After return
+    parser->start   = start;
+    parser->end     = end  ;
+    parser->current = end  ;
+    return stmt_block;
 }
 
 StmtLet* parser_parse_stmt_let(Parser* parser)
