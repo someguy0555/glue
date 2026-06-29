@@ -31,7 +31,6 @@ enum StmtKind
     STMT_CONTINUE         ,
     STMT_FN               ,
     STMT_RETURN           ,
-    STMT_EMPTY            ,
 };
 
 struct StmtBlock

@@ -18,7 +18,6 @@ Type* parser_parse_type_list(Parser* parser)
     type = (Type)
     {
         .kind = TYPE_LIST     ,
-        .identifier = NULL    ,
         .line = token.line    ,
         .column = token.column,
         .length = token.length,
@@ -137,7 +136,6 @@ Type* parser_parse_type_struct(Parser* parser)
     type = (Type)
     {
         .kind       = TYPE_STRUCT ,
-        .identifier = NULL        ,
         .line       = token.line  ,
         .column     = token.column,
         .length     = token.line  ,
@@ -234,14 +232,14 @@ Type* parser_parse_type_function(Parser* parser)
     type = (Type)
     {
         .kind       = TYPE_FN     ,
-        .identifier = NULL        ,
         .line       = token.line  ,
         .column     = token.column,
         .length     = token.line  ,
         .type.fn = (TypeFunction)
         {
-            .argc = argc,
-            .argv = argv,
+            .identifier = NULL,
+            .argc = argc      ,
+            .argv = argv      ,
         }
     };
 
@@ -271,7 +269,7 @@ Type* parser_parse_type_primitive(Parser* parser)
             type.kind = TYPE_REAL;
             break;
         case TOKEN_IDENTIFIER:
-            type.kind = TYPE_IDENTIFIER;
+            type.kind = TYPE_VARIABLE;
             break;
         default:
             parser_throw_compiler_error(parser, (CompileError)
@@ -287,11 +285,10 @@ Type* parser_parse_type_primitive(Parser* parser)
 
     type = (Type)
     {
-        .identifier     = token.start ,
         .line           = token.line  ,
         .column         = token.column,
         .length         = token.length,
-        .type.primitive = NULL        , // Assumes primitive, though this should set all pointers to NULL.
+        .type.none      = NULL        ,
     };
 
     return (Type*) arena_push(&parser->arena, &type, sizeof(Type));
@@ -324,10 +321,12 @@ Type* parser_parse_type(Parser* parser)
             token = parser_peek(parser);
             if (token.type == TOKEN_LEFT_PAREN)
             {
-                if (lhs->kind == TYPE_IDENTIFIER)
+                if (lhs->kind == TYPE_VARIABLE)
                 {
                     rhs = parser_parse_type_function(parser);
-                    rhs->identifier = lhs->identifier;
+                    // TODO: Set identifier later.
+                    rhs->type.fn.identifier = NULL;
+                    // rhs->type.fn.identifier = lhs->identifier;
                     rhs->line       = lhs->line      ;
                     rhs->column     = lhs->column    ;
                     rhs->length     = lhs->length    ;

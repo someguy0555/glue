@@ -1,0 +1,32 @@
+fn fib(n : Int)
+do
+	if n < 2; return n
+	
+	let i : Int = 1
+	
+	let a : Int = 0
+	let b : Int = 1
+	let c : Int
+	
+	while i < n
+	do
+		c = a + b
+		a = b
+	    b = c
+		
+		i = i + 1
+	end	
+	return c
+end
+
+let i : Int = 0
+let n : Int = 0
+
+while true
+do
+	if i == 12; break
+
+	n = n + fib(i)
+
+	i = i + 1
+end

@@ -15,9 +15,9 @@ typedef struct TypeFunction    TypeFunction   ;
 enum TypeKind
 {
     // Special
+    TYPE_ERROR     ,
     TYPE_UNKNOWN   ,
     TYPE_VARIABLE  ,
-    TYPE_IDENTIFIER,
     TYPE_ALIAS     ,
 
     TYPE_PRIMITIVE_SEPERATOR,
@@ -38,8 +38,6 @@ enum TypeKind
     TYPE_MISC_SEPERATOR,
 };
 
-// Tagged Union
-
 struct TypeList
 {
     Type* type;
@@ -47,6 +45,7 @@ struct TypeList
 
 struct TypeFunction
 {
+    char* identifier;
     int   argc;
     Type** argv;
 };
@@ -63,17 +62,18 @@ struct TypeStruct
     TypeStructField** argv;
 };
 
+// Holds type information.
+// Each 'Type' object is considered a seperate 'variable', which is why if the kind of type is TYPE_VARIABLE, there is not type id of any kind.
 struct Type
 {
     TypeKind kind;
-    char* identifier;
     int line  ;
     int column;
     int length;
 
     union
     {
-        void        * primitive; // Primitives don't have any elements, so this would be NULL.
+        void        * none     ; // Primitives and variables don't need any data, so they're just NULL void pointers;
         TypeList      list     ;
         TypeStruct    structt  ;
         TypeFunction  fn       ;

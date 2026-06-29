@@ -807,7 +807,6 @@ const char* stmt_type_name(StmtKind kind)
         case STMT_CONTINUE:          return "STMT_CONTINUE";
         case STMT_FN:                return "STMT_FN";
         case STMT_RETURN:            return "STMT_RETURN";
-        case STMT_EMPTY:             return "STMT_EMPTY";
         default:                     return "UNKNOWN";
     }
 }
